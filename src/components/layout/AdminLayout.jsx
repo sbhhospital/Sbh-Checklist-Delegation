@@ -73,7 +73,7 @@ export default function AdminLayout({ children, darkMode, toggleDarkMode }) {
       label: "Assign Task",
       icon: CheckSquare,
       active: location.pathname === "/dashboard/assign-task",
-      showFor: ["admin"] // Only show for admin
+      showFor: ["admin" , "user"] // Only show for admin
     },
 
     {
