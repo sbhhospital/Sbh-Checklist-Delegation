@@ -793,7 +793,7 @@ export default function AssignTask() {
         submitSheetName = "DELEGATION";
       } else {
         // Use the selected department name as the sheet name
-        submitSheetName = "Checklist";
+        submitSheetName = "Task List";
       }
 
       console.log(`Selected department: ${formData.department}`);
