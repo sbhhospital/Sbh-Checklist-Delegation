@@ -1119,7 +1119,7 @@ export default function AssignTask() {
                 {/* Date Picker */}
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-purple-700">
-                    Task Start Date
+                    Task Deadline Date
                   </label>
                   <div className="relative">
                     <button
