@@ -443,145 +443,156 @@ function DelegationDataPage() {
   }, [historyData, debouncedSearchTerm, startDate, endDate, parseDateFromDDMMYYYY, userRole, username])
 
   // Optimized data fetching with parallel requests
-  const fetchSheetData = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
+// Optimized data fetching with parallel requests
+const fetchSheetData = useCallback(async () => {
+  try {
+    setLoading(true)
+    setError(null)
 
-      // Parallel fetch both sheets for better performance
-      const [mainResponse, historyResponse] = await Promise.all([
-        fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.SOURCE_SHEET_NAME}&action=fetch`),
-        fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.TARGET_SHEET_NAME}&action=fetch`).catch(() => null),
-      ])
+    // Parallel fetch both sheets for better performance
+    const [mainResponse, historyResponse] = await Promise.all([
+      fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.SOURCE_SHEET_NAME}&action=fetch`),
+      fetch(`${CONFIG.APPS_SCRIPT_URL}?sheet=${CONFIG.TARGET_SHEET_NAME}&action=fetch`).catch(() => null),
+    ])
 
-      if (!mainResponse.ok) {
-        throw new Error(`Failed to fetch data: ${mainResponse.status}`)
-      }
-
-      // Process main data
-      const mainText = await mainResponse.text()
-      let data
-      try {
-        data = JSON.parse(mainText)
-      } catch (parseError) {
-        const jsonStart = mainText.indexOf("{")
-        const jsonEnd = mainText.lastIndexOf("}")
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          const jsonString = mainText.substring(jsonStart, jsonEnd + 1)
-          data = JSON.parse(jsonString)
-        } else {
-          throw new Error("Invalid JSON response from server")
-        }
-      }
-
-      // Process history data if available
-      let processedHistoryData = []
-      if (historyResponse && historyResponse.ok) {
-        try {
-          const historyText = await historyResponse.text()
-          let historyData
-          try {
-            historyData = JSON.parse(historyText)
-          } catch (parseError) {
-            const jsonStart = historyText.indexOf("{")
-            const jsonEnd = historyText.lastIndexOf("}")
-            if (jsonStart !== -1 && jsonEnd !== -1) {
-              const jsonString = historyText.substring(jsonStart, jsonEnd + 1)
-              historyData = JSON.parse(jsonString)
-            }
-          }
-
-          if (historyData && historyData.table && historyData.table.rows) {
-            processedHistoryData = historyData.table.rows
-              .map((row, rowIndex) => {
-                if (rowIndex === 0) return null
-
-                const rowData = {
-                  _id: Math.random().toString(36).substring(2, 15),
-                  _rowIndex: rowIndex + 1,
-                }
-
-                const rowValues = row.c ? row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : "")) : []
-
-                // Map all columns including column H (col7) for user filtering, column I (col8) for Task, and column P (col15) for Admin Done
-                for (let i = 0; i < 16; i++) {
-                  if (i === 0 || i === 6 || i === 10) {
-                    rowData[`col${i}`] = rowValues[i] ? parseGoogleSheetsDate(String(rowValues[i])) : ""
-                  } else {
-                    rowData[`col${i}`] = rowValues[i] || ""
-                  }
-                }
-
-                return rowData
-              })
-              .filter((row) => row !== null)
-          }
-        } catch (historyError) {
-          console.error("Error processing history data:", historyError)
-        }
-      }
-
-      setHistoryData(processedHistoryData)
-
-      // Process main delegation data - REMOVED ALL FILTERING LOGIC
-      const allDelegationData = []
-
-      let rows = []
-      if (data.table && data.table.rows) {
-        rows = data.table.rows
-      } else if (Array.isArray(data)) {
-        rows = data
-      } else if (data.values) {
-        rows = data.values.map((row) => ({ c: row.map((val) => ({ v: val })) }))
-      }
-
-      // Inside the fetchSheetData function, update the data processing section:
-      rows.forEach((row, rowIndex) => {
-        if (rowIndex === 0) return // Skip header row
-
-        let rowValues = []
-        if (row.c) {
-          rowValues = row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : ""))
-        } else if (Array.isArray(row)) {
-          rowValues = row
-        } else {
-          return
-        }
-
-        const googleSheetsRowIndex = rowIndex + 1
-        const taskId = rowValues[1] || ""
-        const stableId = taskId
-          ? `task_${taskId}_${googleSheetsRowIndex}`
-          : `row_${googleSheetsRowIndex}_${Math.random().toString(36).substring(2, 15)}`
-
-        const rowData = {
-          _id: stableId,
-          _rowIndex: googleSheetsRowIndex,
-          _taskId: taskId,
-        }
-
-        // Map all columns including timestamp (column A)
-        for (let i = 0; i < 21; i++) {
-          if (i === 0 || i === 6 || i === 10) {
-            // Column A (0) is timestamp, handle it as date
-            rowData[`col${i}`] = rowValues[i] ? parseGoogleSheetsDate(String(rowValues[i])) : ""
-          } else {
-            rowData[`col${i}`] = rowValues[i] || ""
-          }
-        }
-
-        allDelegationData.push(rowData)
-      })
-
-      setAccountData(allDelegationData)
-      setDelegationData(allDelegationData)
-      setLoading(false)
-    } catch (error) {
-      console.error("Error fetching sheet data:", error)
-      setError("Failed to load account data: " + error.message)
-      setLoading(false)
+    if (!mainResponse.ok) {
+      throw new Error(`Failed to fetch data: ${mainResponse.status}`)
     }
-  }, [formatDateToDDMMYYYY, parseGoogleSheetsDate, parseDateFromDDMMYYYY, isEmpty])
+
+    // Process main data
+    const mainText = await mainResponse.text()
+    let data
+    try {
+      data = JSON.parse(mainText)
+    } catch (parseError) {
+      const jsonStart = mainText.indexOf("{")
+      const jsonEnd = mainText.lastIndexOf("}")
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        const jsonString = mainText.substring(jsonStart, jsonEnd + 1)
+        data = JSON.parse(jsonString)
+      } else {
+        throw new Error("Invalid JSON response from server")
+      }
+    }
+
+    // Process history data if available
+    let processedHistoryData = []
+    if (historyResponse && historyResponse.ok) {
+      try {
+        const historyText = await historyResponse.text()
+        let historyData
+        try {
+          historyData = JSON.parse(historyText)
+        } catch (parseError) {
+          const jsonStart = historyText.indexOf("{")
+          const jsonEnd = historyText.lastIndexOf("}")
+          if (jsonStart !== -1 && jsonEnd !== -1) {
+            const jsonString = historyText.substring(jsonStart, jsonEnd + 1)
+            historyData = JSON.parse(jsonString)
+          }
+        }
+
+        if (historyData && historyData.table && historyData.table.rows) {
+          processedHistoryData = historyData.table.rows
+            .map((row, rowIndex) => {
+              if (rowIndex === 0) return null
+
+              const rowData = {
+                _id: Math.random().toString(36).substring(2, 15),
+                _rowIndex: rowIndex + 1,
+              }
+
+              const rowValues = row.c ? row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : "")) : []
+
+              // Map all columns including column H (col7) for user filtering, column I (col8) for Task, and column P (col15) for Admin Done
+              for (let i = 0; i < 16; i++) {
+                if (i === 0 || i === 6 || i === 10) {
+                  rowData[`col${i}`] = rowValues[i] ? parseGoogleSheetsDate(String(rowValues[i])) : ""
+                } else {
+                  rowData[`col${i}`] = rowValues[i] || ""
+                }
+              }
+
+              return rowData
+            })
+            .filter((row) => row !== null)
+        }
+      } catch (historyError) {
+        console.error("Error processing history data:", historyError)
+      }
+    }
+
+    setHistoryData(processedHistoryData)
+
+    // Process main delegation data - ADD USER FILTERING LOGIC
+    const allDelegationData = []
+
+    let rows = []
+    if (data.table && data.table.rows) {
+      rows = data.table.rows
+    } else if (Array.isArray(data)) {
+      rows = data
+    } else if (data.values) {
+      rows = data.values.map((row) => ({ c: row.map((val) => ({ v: val })) }))
+    }
+
+    // Inside the fetchSheetData function, update the data processing section:
+    rows.forEach((row, rowIndex) => {
+      if (rowIndex === 0) return // Skip header row
+
+      let rowValues = []
+      if (row.c) {
+        rowValues = row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : ""))
+      } else if (Array.isArray(row)) {
+        rowValues = row
+      } else {
+        return
+      }
+
+      const googleSheetsRowIndex = rowIndex + 1
+      const taskId = rowValues[1] || ""
+      const stableId = taskId
+        ? `task_${taskId}_${googleSheetsRowIndex}`
+        : `row_${googleSheetsRowIndex}_${Math.random().toString(36).substring(2, 15)}`
+
+      const rowData = {
+        _id: stableId,
+        _rowIndex: googleSheetsRowIndex,
+        _taskId: taskId,
+      }
+
+      // Map all columns including timestamp (column A)
+      for (let i = 0; i < 21; i++) {
+        if (i === 0 || i === 6 || i === 10) {
+          // Column A (0) is timestamp, handle it as date
+          rowData[`col${i}`] = rowValues[i] ? parseGoogleSheetsDate(String(rowValues[i])) : ""
+        } else {
+          rowData[`col${i}`] = rowValues[i] || ""
+        }
+      }
+
+      // ADD USER FILTERING LOGIC HERE
+      // For non-admin users, only show rows where column E (col4) matches their username
+      if (userRole !== "admin") {
+        const taskAssignedTo = rowData["col4"] // Column E (Name)
+        if (!taskAssignedTo || taskAssignedTo.toLowerCase().trim() !== username.toLowerCase().trim()) {
+          return // Skip this row if it's not assigned to the current user
+        }
+      }
+      // For admin users, show all data (no filtering needed)
+
+      allDelegationData.push(rowData)
+    })
+
+    setAccountData(allDelegationData)
+    setDelegationData(allDelegationData)
+    setLoading(false)
+  } catch (error) {
+    console.error("Error fetching sheet data:", error)
+    setError("Failed to load account data: " + error.message)
+    setLoading(false)
+  }
+}, [formatDateToDDMMYYYY, parseGoogleSheetsDate, parseDateFromDDMMYYYY, isEmpty, userRole, username])
 
   useEffect(() => {
     fetchSheetData()
