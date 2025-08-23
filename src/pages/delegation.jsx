@@ -448,6 +448,7 @@ const fetchSheetData = useCallback(async () => {
   try {
     setLoading(true)
     setError(null)
+    
 
     // Parallel fetch both sheets for better performance
     const [mainResponse, historyResponse] = await Promise.all([
@@ -537,52 +538,57 @@ const fetchSheetData = useCallback(async () => {
     }
 
     // Inside the fetchSheetData function, update the data processing section:
-    rows.forEach((row, rowIndex) => {
-      if (rowIndex === 0) return // Skip header row
+rows.forEach((row, rowIndex) => {
+  if (rowIndex === 0) return // Skip header row
 
-      let rowValues = []
-      if (row.c) {
-        rowValues = row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : ""))
-      } else if (Array.isArray(row)) {
-        rowValues = row
-      } else {
-        return
-      }
+  let rowValues = []
+  if (row.c) {
+    rowValues = row.c.map((cell) => (cell && cell.v !== undefined ? cell.v : ""))
+  } else if (Array.isArray(row)) {
+    rowValues = row
+  } else {
+    return
+  }
 
-      const googleSheetsRowIndex = rowIndex + 1
-      const taskId = rowValues[1] || ""
-      const stableId = taskId
-        ? `task_${taskId}_${googleSheetsRowIndex}`
-        : `row_${googleSheetsRowIndex}_${Math.random().toString(36).substring(2, 15)}`
+  const googleSheetsRowIndex = rowIndex + 1
+  const taskId = rowValues[1] || ""
+  const stableId = taskId
+    ? `task_${taskId}_${googleSheetsRowIndex}`
+    : `row_${googleSheetsRowIndex}_${Math.random().toString(36).substring(2, 15)}`
 
-      const rowData = {
-        _id: stableId,
-        _rowIndex: googleSheetsRowIndex,
-        _taskId: taskId,
-      }
+  const rowData = {
+    _id: stableId,
+    _rowIndex: googleSheetsRowIndex,
+    _taskId: taskId,
+  }
 
-      // Map all columns including timestamp (column A)
-      for (let i = 0; i < 21; i++) {
-        if (i === 0 || i === 6 || i === 10) {
-          // Column A (0) is timestamp, handle it as date
-          rowData[`col${i}`] = rowValues[i] ? parseGoogleSheetsDate(String(rowValues[i])) : ""
-        } else {
-          rowData[`col${i}`] = rowValues[i] || ""
-        }
-      }
+  // Map all columns including timestamp (column A)
+  for (let i = 0; i < 21; i++) {
+    if (i === 0 || i === 6 || i === 10) {
+      // Column A (0), G (6), K (10) are dates
+      rowData[`col${i}`] = rowValues[i] ? parseGoogleSheetsDate(String(rowValues[i])) : ""
+    } else {
+      rowData[`col${i}`] = rowValues[i] || ""
+    }
+  }
 
-      // ADD USER FILTERING LOGIC HERE
-      // For non-admin users, only show rows where column E (col4) matches their username
-      if (userRole !== "admin") {
-        const taskAssignedTo = rowData["col4"] // Column E (Name)
-        if (!taskAssignedTo || taskAssignedTo.toLowerCase().trim() !== username.toLowerCase().trim()) {
-          return // Skip this row if it's not assigned to the current user
-        }
-      }
-      // For admin users, show all data (no filtering needed)
+  // ✅ NEW: Skip rows where Column L (col11) has a value
+  const actualValue = rowData["col11"] // Column L (Actual)
+  if (!isEmpty(actualValue)) {
+    return // Skip this row if Column L is not empty
+  }
 
-      allDelegationData.push(rowData)
-    })
+  // ✅ User filtering logic
+  if (userRole !== "admin") {
+    const taskAssignedTo = rowData["col4"] // Column E (Name)
+    if (!taskAssignedTo || taskAssignedTo.toLowerCase().trim() !== username.toLowerCase().trim()) {
+      return // Skip if not assigned to this user
+    }
+  }
+
+  allDelegationData.push(rowData)
+})
+
 
     setAccountData(allDelegationData)
     setDelegationData(allDelegationData)

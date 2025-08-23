@@ -966,12 +966,9 @@ const handleSubmit = async (e) => {
       }
     }
 
-    // Get task IDs for both sheets
+    // Get task IDs for main sheet
     const lastTaskIdMain = await getLastTaskId(submitSheetName);
-    const lastTaskIdUnique = await getLastTaskId("UNIQUE");
-    
     let nextTaskIdMain = lastTaskIdMain + 1;
-    let nextTaskIdUnique = lastTaskIdUnique + 1;
 
     // Prepare tasks data
     const tasksDataMain = tasksToSubmit.map((task, index) => ({
@@ -987,7 +984,7 @@ const handleSubmit = async (e) => {
       requireAttachment: task.requireAttachment ? "Yes" : "No"
     }));
 
-    // Submit to main sheet (Task List)
+    // Submit to main sheet (Delegation / Checklist)
     const formPayloadMain = new FormData();
     formPayloadMain.append("sheetName", submitSheetName);
     formPayloadMain.append("action", "insert");
@@ -1003,41 +1000,49 @@ const handleSubmit = async (e) => {
       }
     );
 
-    // Submit to unique sheet (same format as main sheet)
-    const tasksDataUnique = tasksToSubmit.map((task, index) => ({
-      timestamp: getCurrentTimestamp(),
-      taskId: (nextTaskIdUnique + index).toString(),
-      firm: task.department,
-      givenBy: task.givenBy,
-      name: task.doer,
-      description: task.description,
-      startDate: task.dueDate,
-      freq: task.frequency,
-      enableReminders: task.enableReminders ? "Yes" : "No",
-      requireAttachment: task.requireAttachment ? "Yes" : "No"
-    }));
+    // ✅ Submit to UNIQUE sheet only if frequency is NOT one-time
+    if (formData.frequency !== "one-time") {
+      const lastTaskIdUnique = await getLastTaskId("UNIQUE");
+      let nextTaskIdUnique = lastTaskIdUnique + 1;
 
-    const formPayloadUnique = new FormData();
-    formPayloadUnique.append("sheetName", "UNIQUE");
-    formPayloadUnique.append("action", "insert");
-    formPayloadUnique.append("batchInsert", "true");
-    formPayloadUnique.append("rowData", JSON.stringify(tasksDataUnique));
+      const tasksDataUnique = tasksToSubmit.map((task, index) => ({
+        timestamp: getCurrentTimestamp(),
+        taskId: (nextTaskIdUnique + index).toString(),
+        firm: task.department,
+        givenBy: task.givenBy,
+        name: task.doer,
+        description: task.description,
+        startDate: task.dueDate,
+        freq: task.frequency,
+        enableReminders: task.enableReminders ? "Yes" : "No",
+        requireAttachment: task.requireAttachment ? "Yes" : "No"
+      }));
 
-    await fetch(
-      "https://script.google.com/macros/s/AKfycbwlEKO_SGplEReKLOdaCdpmztSXHDB_0oapI1dwiEY7qmuzvhScIvmXjB6_HLP8jFQL/exec",
-      {
-        method: "POST",
-        body: formPayloadUnique,
-        mode: "no-cors",
-      }
-    );
+      const formPayloadUnique = new FormData();
+      formPayloadUnique.append("sheetName", "UNIQUE");
+      formPayloadUnique.append("action", "insert");
+      formPayloadUnique.append("batchInsert", "true");
+      formPayloadUnique.append("rowData", JSON.stringify(tasksDataUnique));
+
+      await fetch(
+        "https://script.google.com/macros/s/AKfycbwlEKO_SGplEReKLOdaCdpmztSXHDB_0oapI1dwiEY7qmuzvhScIvmXjB6_HLP8jFQL/exec",
+        {
+          method: "POST",
+          body: formPayloadUnique,
+          mode: "no-cors",
+        }
+      );
+    }
 
     // Success message
     const taskCount = tasksToSubmit.length;
-    let successMessage = `Successfully submitted ${taskCount} task(s) to both ${submitSheetName} and UNIQUE sheets!`;
+    let successMessage = `Successfully submitted ${taskCount} task(s) to ${submitSheetName}`;
     
+    if (formData.frequency !== "one-time") {
+      successMessage += ` and UNIQUE sheets!`;
+    }
     if (isToday()) {
-      successMessage = `Today's date selected - submitted ${taskCount} task(s) to both ${submitSheetName} and UNIQUE sheets!`;
+      successMessage = `Today's date selected - submitted ${taskCount} task(s) to ${submitSheetName}` + (formData.frequency !== "one-time" ? " and UNIQUE sheets!" : "!");
     }
     
     alert(successMessage);
@@ -1066,6 +1071,7 @@ const handleSubmit = async (e) => {
     setIsSubmitting(false);
   }
 };
+
 
   // Helper function to format date for display in preview
   const formatDateForDisplay = (dateTimeStr) => {
